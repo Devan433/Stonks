@@ -33,8 +33,9 @@ from trading_assistant.config import MARKET, PATHS, STOCKS
 
 logger = logging.getLogger(__name__)
 
-TELEGRAM_TOKEN = "8766267064:AAHZGr52oJjIFtARQREWhm5GRZf008PNGjo"
-TELEGRAM_CHAT_ID = "1166557597"
+import os
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 IST = pytz.timezone(MARKET.TIMEZONE)
 
 
