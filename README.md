@@ -18,7 +18,7 @@ It features a Telegram bot integration to deliver real-time trade alerts, chart 
 
 ### 1. Clone the Repository
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/Devan433/Stonks.git
 cd Stonk
 ```
 
@@ -42,9 +42,23 @@ Once the environment is activated `(.venv)`, install the required packages:
 pip install -r trading_assistant/requirements.txt
 ```
 
-### 4. Configuration
-Ensure you have set up your `trading_assistant/config.py` and provided any required API keys (e.g., Telegram Bot Token) in your environment variables or `.env` file.
+### 4. Create a Telegram Bot
+Each user must create their own Telegram bot to receive trade alerts:
 
+1. Open Telegram and search for **@BotFather**.
+2. Send `/newbot` and follow the prompts to name your bot.
+3. BotFather will give you an **API Token** — copy it.
+4. To get your **Chat ID**, search for **@userinfobot** on Telegram and send `/start`. It will reply with your numeric chat ID.
+
+### 5. Configure Environment Variables
+Create a `.env` file in the project root directory (`Stonk/.env`). This file is excluded from Git, so your secrets stay private.
+
+```env
+TELEGRAM_TOKEN="your-telegram-bot-token-here"
+TELEGRAM_CHAT_ID="your-numeric-chat-id-here"
+```
+
+> **Note:** Never commit your `.env` file to version control. The included `.gitignore` already handles this.
 ## Usage
 
 To start the trading assistant pipeline, ensure your virtual environment is active and run:
