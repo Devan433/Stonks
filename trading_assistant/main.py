@@ -217,15 +217,15 @@ def refresh_prices() -> None:
                         atr = latest["atr_14"]
                         rsi = latest["rsi_14"]
                         macd = latest["macd_line"]
-                        vol_spike = "🔴 YES" if latest.get("volume_spike", 0) else "⚪ NO"
+                        vol_spike = "YES" if latest.get("volume_spike", 0) else "NO"
 
                         # SMC features
-                        fvg_bull = "✅" if latest.get("fvg_bullish", 0) else "—"
-                        fvg_bear = "✅" if latest.get("fvg_bearish", 0) else "—"
-                        ob_bull = "✅" if latest.get("ob_bullish", 0) else "—"
-                        ob_bear = "✅" if latest.get("ob_bearish", 0) else "—"
-                        sweep_bull = "✅" if latest.get("sweep_bullish", 0) else "—"
-                        sweep_bear = "✅" if latest.get("sweep_bearish", 0) else "—"
+                        fvg_bull = "YES" if latest.get("fvg_bullish", 0) else "—"
+                        fvg_bear = "YES" if latest.get("fvg_bearish", 0) else "—"
+                        ob_bull = "YES" if latest.get("ob_bullish", 0) else "—"
+                        ob_bear = "YES" if latest.get("ob_bearish", 0) else "—"
+                        sweep_bull = "YES" if latest.get("sweep_bullish", 0) else "—"
+                        sweep_bear = "YES" if latest.get("sweep_bearish", 0) else "—"
                         
                         # Sentiment value (already fetched above)
                         sentiment = f"{sentiment_val:.2f}"
@@ -242,41 +242,52 @@ def refresh_prices() -> None:
                             sl_pct = (sl - entry) / entry * 100
                             tp_pct = (tp - entry) / entry * 100
 
-                        # Regime emoji
-                        regime_emoji = {
-                            MarketRegime.BULLISH: "🟢 BULLISH",
-                            MarketRegime.CAUTIOUS: "🟡 CAUTIOUS",
-                            MarketRegime.BEARISH: "🔴 BEARISH",
-                            MarketRegime.PANIC: "🚨 PANIC",
+                        # Regime status
+                        regime_status = {
+                            MarketRegime.BULLISH: "BULLISH",
+                            MarketRegime.CAUTIOUS: "CAUTIOUS",
+                            MarketRegime.BEARISH: "BEARISH",
+                            MarketRegime.PANIC: "PANIC",
                         }
 
                         # Position sizing guidance
                         pos_pct = int(pos_scale * 100)
                         if pos_scale >= 1.0:
-                            pos_guidance = f"💰 Full position ({pos_pct}%)"
+                            pos_guidance = f"Full position ({pos_pct}%)"
                         elif pos_scale > 0:
-                            pos_guidance = f"⚠️ Reduced position ({pos_pct}%) — {regime.value} regime"
+                            pos_guidance = f"Reduced position ({pos_pct}%) — {regime.value} regime"
                         else:
-                            pos_guidance = f"🚫 No position — {regime.value} regime"
+                            pos_guidance = f"No position — {regime.value} regime"
 
-                        msg = (f"🚨 *{signal['signal']} SIGNAL: {ticker}* 🚨\n\n"
-                               f"🎯 *TRADE SETUP*\n"
-                               f"• *Entry Price:* ₹{entry:,.2f}\n"
-                               f"• *Take Profit:* ₹{tp:,.2f} ({tp_pct:+.1f}%)\n"
-                               f"• *Stop Loss:* ₹{sl:,.2f} ({sl_pct:+.1f}%)\n"
-                               f"• *Position Size:* {pos_guidance}\n\n"
-                               f"🧠 *AI PREDICTION*\n"
-                               f"• *Confidence:* {signal.get('confidence', 0):.1%}\n"
-                               f"• *Market Regime:* {regime_emoji.get(regime, regime.value)}\n\n"
-                               f"📊 *TECHNICAL REASONS*\n"
-                               f"• *MACD:* {macd:,.2f}\n"
-                               f"• *RSI (14):* {rsi:.1f}\n"
-                               f"• *Volume Spike:* {vol_spike}\n"
-                               f"• *News Sentiment:* {sentiment}\n\n"
-                               f"🏦 *SMART MONEY*\n"
-                               f"• *Bullish FVG:* {fvg_bull} | *Bearish FVG:* {fvg_bear}\n"
-                               f"• *Bullish OB:* {ob_bull} | *Bearish OB:* {ob_bear}\n"
-                               f"• *Bull Sweep:* {sweep_bull} | *Bear Sweep:* {sweep_bear}")
+                        # Fetch recent news for context
+                        news_df = db.get_recent_news(hours=24, symbol=ticker)
+                        news_text = ""
+                        if not news_df.empty:
+                            news_text = "\n*RECENT NEWS*\n"
+                            for _, row in news_df.head(3).iterrows():
+                                news_text += f"• {row['headline']}\n"
+                        else:
+                            news_text = "\n*RECENT NEWS*\n• No major news in last 24h.\n"
+
+                        msg = (f"*{signal['signal']} SIGNAL: {ticker}*\n\n"
+                               f"*TRADE SETUP*\n"
+                               f"• Entry Price: ₹{entry:,.2f}\n"
+                               f"• Take Profit: ₹{tp:,.2f} ({tp_pct:+.1f}%)\n"
+                               f"• Stop Loss: ₹{sl:,.2f} ({sl_pct:+.1f}%)\n"
+                               f"• Position Size: {pos_guidance}\n\n"
+                               f"*AI PREDICTION*\n"
+                               f"• Confidence: {signal.get('confidence', 0):.1%}\n"
+                               f"• Market Regime: {regime_status.get(regime, regime.value)}\n\n"
+                               f"*TECHNICAL REASONS*\n"
+                               f"• MACD: {macd:,.2f}\n"
+                               f"• RSI (14): {rsi:.1f}\n"
+                               f"• Volume Spike: {vol_spike}\n"
+                               f"• News Sentiment: {sentiment}\n\n"
+                               f"*SMART MONEY*\n"
+                               f"• Bullish FVG: {fvg_bull} | Bearish FVG: {fvg_bear}\n"
+                               f"• Bullish OB: {ob_bull} | Bearish OB: {ob_bear}\n"
+                               f"• Bull Sweep: {sweep_bull} | Bear Sweep: {sweep_bear}\n"
+                               f"{news_text}")
                         send_telegram_message(msg)
             except Exception as exc:
                 logger.error("Signal gen failed for %s: %s", ticker, exc)

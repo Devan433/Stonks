@@ -310,7 +310,7 @@ class TelegramBotPoller:
         parts = text.split()
         if len(parts) < 2:
             send_telegram_message(
-                "📊 *Usage:* `/chart RELIANCE.NS`\n\n"
+                "*Usage:* `/chart RELIANCE.NS`\n\n"
                 "Available tickers:\n" +
                 ", ".join(f"`{t}`" for t in STOCKS.TICKERS[:10]) +
                 "\n... and more"
@@ -324,23 +324,23 @@ class TelegramBotPoller:
 
         if ticker not in STOCKS.TICKERS:
             send_telegram_message(
-                f"❌ *{ticker}* is not in our Nifty 50 watchlist.\n"
+                f"*ERROR:* {ticker} is not in our Nifty 50 watchlist.\n"
                 f"Try one of: {', '.join(STOCKS.TICKERS[:5])}"
             )
             return
 
-        send_telegram_message(f"📈 Generating chart for *{ticker}*... please wait.")
+        send_telegram_message(f"Generating chart for *{ticker}*... please wait.")
 
         chart_bytes = generate_chart(ticker)
         if chart_bytes:
             send_telegram_photo(
                 chart_bytes,
-                caption=f"📈 *{ticker}* — 15min Chart\n"
-                        f"🕐 {datetime.now(IST).strftime('%d %b %Y, %I:%M %p IST')}",
+                caption=f"*{ticker}* — 15min Chart\n"
+                        f"{datetime.now(IST).strftime('%d %b %Y, %I:%M %p IST')}",
             )
         else:
             send_telegram_message(
-                f"⚠️ Not enough data for *{ticker}* yet. "
+                f"*WARNING:* Not enough data for *{ticker}* yet. "
                 f"Run the main pipeline first to fetch historical data."
             )
 
@@ -349,15 +349,15 @@ class TelegramBotPoller:
         from trading_assistant.features.market_regime import detect_regime, MarketRegime
 
         regime = detect_regime()
-        regime_emoji = {
-            MarketRegime.BULLISH: "🟢 BULLISH — All clear, BUY signals active",
-            MarketRegime.CAUTIOUS: "🟡 CAUTIOUS — VIX elevated, reduced positions",
-            MarketRegime.BEARISH: "🔴 BEARISH — Nifty downtrend, BUY signals blocked",
-            MarketRegime.PANIC: "🚨 PANIC — Extreme fear, all BUY signals blocked",
+        regime_status = {
+            MarketRegime.BULLISH: "BULLISH — Constraint: BUY signals permitted",
+            MarketRegime.CAUTIOUS: "CAUTIOUS — Constraint: Reduced positions (elevated VIX)",
+            MarketRegime.BEARISH: "BEARISH — Constraint: BUY signals blocked (downtrend)",
+            MarketRegime.PANIC: "PANIC — Constraint: All BUY signals blocked",
         }
 
-        msg = (f"📊 *MARKET STATUS*\n\n"
-               f"*Regime:* {regime_emoji.get(regime, regime.value)}\n"
+        msg = (f"*MARKET STATUS*\n\n"
+               f"*Regime:* {regime_status.get(regime, regime.value)}\n"
                f"*Time:* {datetime.now(IST).strftime('%d %b %Y, %I:%M %p IST')}\n"
                f"*Tracking:* {len(STOCKS.TICKERS)} Nifty 50 stocks\n\n"
                f"Use `/chart RELIANCE.NS` to view any stock chart.")
@@ -371,11 +371,11 @@ class TelegramBotPoller:
         today = datetime.now(IST).strftime("%Y-%m-%d")
         regime = detect_regime()
 
-        regime_emoji = {
-            MarketRegime.BULLISH: "🟢 BULLISH",
-            MarketRegime.CAUTIOUS: "🟡 CAUTIOUS",
-            MarketRegime.BEARISH: "🔴 BEARISH",
-            MarketRegime.PANIC: "🚨 PANIC",
+        regime_status = {
+            MarketRegime.BULLISH: "BULLISH",
+            MarketRegime.CAUTIOUS: "CAUTIOUS",
+            MarketRegime.BEARISH: "BEARISH",
+            MarketRegime.PANIC: "PANIC",
         }
 
         db = DatabaseManager()
@@ -408,11 +408,11 @@ class TelegramBotPoller:
 
             top_section = ""
             if not top_signals.empty:
-                top_section = "\n🏆 *Top Confidence Signals:*\n"
+                top_section = "\n*Top Confidence Signals:*\n"
                 for _, row in top_signals.iterrows():
                     top_section += f"  • {row['signal']} {row['symbol']} ({row['confidence']:.1%})\n"
             else:
-                top_section = "\n🏆 *Top Signals:* None today\n"
+                top_section = "\n*Top Signals:* None today\n"
 
             # News articles count
             news = pd.read_sql_query(
@@ -426,15 +426,15 @@ class TelegramBotPoller:
             db.close()
 
         msg = (
-            f"📋 *DAILY REPORT — {today}*\n\n"
-            f"🛡️ *Market Regime:* {regime_emoji.get(regime, regime.value)}\n"
-            f"📊 *Signals Today:* {total}\n"
+            f"*DAILY REPORT — {today}*\n\n"
+            f"*Market Regime:* {regime_status.get(regime, regime.value)}\n"
+            f"*Signals Today:* {total}\n"
             f"  • BUY: {buy_count}\n"
             f"  • SELL: {sell_count}\n"
             f"  • HOLD: {hold_count}\n"
             f"{top_section}\n"
-            f"📰 *News Processed:* {news_count} articles (24h)\n"
-            f"🕐 *Generated:* {datetime.now(IST).strftime('%I:%M %p IST')}"
+            f"*News Processed:* {news_count} articles (24h)\n"
+            f"*Generated:* {datetime.now(IST).strftime('%I:%M %p IST')}"
         )
         send_telegram_message(msg)
 
@@ -443,7 +443,7 @@ class TelegramBotPoller:
         parts = text.split()
         if len(parts) < 2:
             send_telegram_message(
-                "📊 *Usage:* `/backtest RELIANCE.NS`\n\n"
+                "*Usage:* `/backtest RELIANCE.NS`\n\n"
                 "Runs a historical backtest on the stock using \n"
                 "the current AI model and shows performance metrics."
             )

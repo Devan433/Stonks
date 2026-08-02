@@ -2,7 +2,7 @@
 Model evaluation and comparison utilities.
 
 Generates confusion matrices, per-class metric charts, walk-forward
-accuracy plots, and a head-to-head XGBoost vs LSTM comparison table.
+accuracy plots, and a head-to-head model comparison table.
 All outputs saved as JSON + plot images for the Streamlit dashboard.
 """
 
@@ -165,7 +165,7 @@ def compare_models(
     """Build a comparison table between all trained models.
 
     Args:
-        results: Dict from run_training_pipeline / run_lstm_pipeline,
+        results: Dict from run_training_pipeline,
                  keyed by model name, each having 'avg_accuracy' and
                  'fold_metrics'.
 
