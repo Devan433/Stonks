@@ -98,17 +98,23 @@ def compute_vwap(
     close: pd.Series,
     volume: pd.Series,
 ) -> pd.Series:
-    """Volume-Weighted Average Price.
+    """Volume-Weighted Average Price (resets daily).
 
     VWAP = cumsum(typical_price * volume) / cumsum(volume).
-    Resets daily if the index contains date information.
+    Resets at the start of each trading day so the calculation
+    is not polluted by previous sessions.
 
     Returns:
         Series named 'vwap'.
     """
     typical = (high + low + close) / 3
-    cum_tp_vol = (typical * volume).cumsum()
-    cum_vol = volume.cumsum()
+    tp_vol = typical * volume
+
+    # Group by date so cumulative sums reset each day
+    dates = close.index.date
+    cum_tp_vol = tp_vol.groupby(dates).cumsum()
+    cum_vol = volume.groupby(dates).cumsum()
+
     vwap = cum_tp_vol / cum_vol.replace(0, np.nan)
     return vwap.rename("vwap")
 

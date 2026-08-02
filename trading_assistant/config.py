@@ -127,6 +127,45 @@ class MarketConfig:
     NO_TRADE_END: Tuple[int, int] = (9, 30)   # No trades until 9:30 AM
     TRADING_DAYS: Tuple[int, ...] = (0, 1, 2, 3, 4)  # Mon–Fri
 
+    # NSE holidays 2025-2026 (update annually from NSE circular)
+    # Format: "YYYY-MM-DD"
+    NSE_HOLIDAYS: Tuple[str, ...] = (
+        # 2025
+        "2025-02-26",  # Mahashivratri
+        "2025-03-14",  # Holi
+        "2025-03-31",  # Id-Ul-Fitr (Ramadan)
+        "2025-04-10",  # Shri Mahavir Jayanti
+        "2025-04-14",  # Dr. Ambedkar Jayanti
+        "2025-04-18",  # Good Friday
+        "2025-05-01",  # Maharashtra Day
+        "2025-08-15",  # Independence Day
+        "2025-08-27",  # Ganesh Chaturthi
+        "2025-10-02",  # Mahatma Gandhi Jayanti
+        "2025-10-21",  # Diwali (Laxmi Puja)
+        "2025-10-22",  # Diwali Balipratipada
+        "2025-11-05",  # Guru Nanak Jayanti
+        "2025-12-25",  # Christmas
+        # 2026
+        "2026-01-26",  # Republic Day
+        "2026-02-17",  # Mahashivratri
+        "2026-03-04",  # Holi
+        "2026-03-20",  # Id-Ul-Fitr (Ramadan)
+        "2026-03-30",  # Shri Mahavir Jayanti
+        "2026-04-03",  # Good Friday
+        "2026-04-14",  # Dr. Ambedkar Jayanti
+        "2026-05-01",  # Maharashtra Day
+        "2026-05-25",  # Buddha Purnima
+        "2026-06-07",  # Id-Ul-Adha (Bakri Id)
+        "2026-07-07",  # Milad-Un-Nabi
+        "2026-08-15",  # Independence Day
+        "2026-08-17",  # Ganesh Chaturthi
+        "2026-10-02",  # Mahatma Gandhi Jayanti
+        "2026-10-09",  # Dussehra
+        "2026-11-10",  # Diwali (Laxmi Puja)
+        "2026-11-25",  # Guru Nanak Jayanti
+        "2026-12-25",  # Christmas
+    )
+
 
 # ── Market Regime Thresholds ────────────────────────────────────
 @dataclass(frozen=True)
@@ -203,6 +242,9 @@ class ModelConfig:
     LSTM_PATIENCE: int = 10
 
     RETRAIN_DAY: str = "sunday"
+
+    # Signal confidence filter — only send alerts above this threshold
+    MIN_SIGNAL_CONFIDENCE: float = 0.70  # 70% minimum confidence for BUY/SELL
 
 
 # ── Trading / Backtesting Constraints ───────────────────────────

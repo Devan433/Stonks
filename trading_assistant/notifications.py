@@ -298,6 +298,10 @@ class TelegramBotPoller:
                 self._handle_chart(text)
             elif text.startswith("/status"):
                 self._handle_status()
+            elif text.startswith("/report"):
+                self._handle_report()
+            elif text.startswith("/backtest"):
+                self._handle_backtest(text)
             elif text.startswith("/help") or text.startswith("/start"):
                 self._handle_help()
 
@@ -359,11 +363,186 @@ class TelegramBotPoller:
                f"Use `/chart RELIANCE.NS` to view any stock chart.")
         send_telegram_message(msg)
 
+    def _handle_report(self):
+        """Handle /report command — daily summary of signals and accuracy."""
+        from trading_assistant.data.database import DatabaseManager
+        from trading_assistant.features.market_regime import detect_regime, MarketRegime
+
+        today = datetime.now(IST).strftime("%Y-%m-%d")
+        regime = detect_regime()
+
+        regime_emoji = {
+            MarketRegime.BULLISH: "🟢 BULLISH",
+            MarketRegime.CAUTIOUS: "🟡 CAUTIOUS",
+            MarketRegime.BEARISH: "🔴 BEARISH",
+            MarketRegime.PANIC: "🚨 PANIC",
+        }
+
+        db = DatabaseManager()
+        try:
+            # Today's signal counts
+            signals = pd.read_sql_query(
+                "SELECT signal, COUNT(*) as cnt FROM trade_signals "
+                "WHERE timestamp LIKE ? GROUP BY signal",
+                db.conn, params=[f"{today}%"],
+            )
+
+            buy_count = sell_count = hold_count = 0
+            for _, row in signals.iterrows():
+                if row["signal"] == "BUY":
+                    buy_count = int(row["cnt"])
+                elif row["signal"] == "SELL":
+                    sell_count = int(row["cnt"])
+                elif row["signal"] == "HOLD":
+                    hold_count = int(row["cnt"])
+
+            total = buy_count + sell_count + hold_count
+
+            # Top confidence signals today
+            top_signals = pd.read_sql_query(
+                "SELECT symbol, signal, confidence FROM trade_signals "
+                "WHERE timestamp LIKE ? AND signal IN ('BUY', 'SELL') "
+                "ORDER BY confidence DESC LIMIT 5",
+                db.conn, params=[f"{today}%"],
+            )
+
+            top_section = ""
+            if not top_signals.empty:
+                top_section = "\n🏆 *Top Confidence Signals:*\n"
+                for _, row in top_signals.iterrows():
+                    top_section += f"  • {row['signal']} {row['symbol']} ({row['confidence']:.1%})\n"
+            else:
+                top_section = "\n🏆 *Top Signals:* None today\n"
+
+            # News articles count
+            news = pd.read_sql_query(
+                "SELECT COUNT(*) as cnt FROM news_articles "
+                "WHERE fetched_at >= datetime('now', '-24 hours')",
+                db.conn,
+            )
+            news_count = int(news["cnt"].iloc[0]) if not news.empty else 0
+
+        finally:
+            db.close()
+
+        msg = (
+            f"📋 *DAILY REPORT — {today}*\n\n"
+            f"🛡️ *Market Regime:* {regime_emoji.get(regime, regime.value)}\n"
+            f"📊 *Signals Today:* {total}\n"
+            f"  • BUY: {buy_count}\n"
+            f"  • SELL: {sell_count}\n"
+            f"  • HOLD: {hold_count}\n"
+            f"{top_section}\n"
+            f"📰 *News Processed:* {news_count} articles (24h)\n"
+            f"🕐 *Generated:* {datetime.now(IST).strftime('%I:%M %p IST')}"
+        )
+        send_telegram_message(msg)
+
+    def _handle_backtest(self, text: str):
+        """Handle /backtest TICKER command — run backtesting and report results."""
+        parts = text.split()
+        if len(parts) < 2:
+            send_telegram_message(
+                "📊 *Usage:* `/backtest RELIANCE.NS`\n\n"
+                "Runs a historical backtest on the stock using \n"
+                "the current AI model and shows performance metrics."
+            )
+            return
+
+        ticker = parts[1].upper()
+        if not ticker.endswith(".NS"):
+            ticker += ".NS"
+
+        if ticker not in STOCKS.TICKERS:
+            send_telegram_message(
+                f"❌ *{ticker}* is not in our Nifty 50 watchlist."
+            )
+            return
+
+        send_telegram_message(f"⏳ Running backtest for *{ticker}*... this may take a moment.")
+
+        try:
+            from trading_assistant.data.database import DatabaseManager
+            from trading_assistant.features.technical_indicators import compute_all_indicators
+            from trading_assistant.models.train_model import add_time_features
+            from trading_assistant.backtesting.backtest import run_backtest
+            import joblib
+            from trading_assistant.config import PATHS
+
+            # Load model
+            model = None
+            for name in ("xgboost_best.pkl", "random_forest_best.pkl"):
+                path = PATHS.MODEL_DIR / name
+                if path.exists():
+                    model = joblib.load(path)
+                    break
+
+            if model is None:
+                send_telegram_message("⚠️ No trained model found. Run the pipeline first.")
+                return
+
+            # Get data
+            db = DatabaseManager()
+            try:
+                df = db.get_price_data(ticker, interval="15m")
+            finally:
+                db.close()
+
+            if df.empty or len(df) < 50:
+                send_telegram_message(f"⚠️ Not enough data for *{ticker}* backtest.")
+                return
+
+            enriched = compute_all_indicators(df)
+            if enriched.empty:
+                send_telegram_message(f"⚠️ Could not compute indicators for *{ticker}*.")
+                return
+
+            enriched = add_time_features(enriched)
+
+            # Generate signals for all rows
+            drop_cols = ["open", "high", "low", "close", "volume",
+                         "symbol", "interval", "target"]
+            feature_cols = [c for c in enriched.columns if c not in drop_cols]
+            X = enriched[feature_cols].fillna(0)
+
+            preds = model.predict(X)
+            le = model._label_encoder
+            labels = le.inverse_transform(preds)
+            signal_map = {"UP": 2, "DOWN": 0, "SIDEWAYS": 1}
+            signals = pd.Series(
+                [signal_map.get(l, 1) for l in labels],
+                index=enriched.index,
+            )
+
+            # Run backtest
+            results = run_backtest(enriched, signals)
+            m = results["metrics"]
+
+            msg = (
+                f"📊 *BACKTEST RESULTS: {ticker}*\n\n"
+                f"💰 *Return:* {m['total_return_pct']:+.2f}%\n"
+                f"📈 *Sharpe Ratio:* {m['sharpe_ratio']:.2f}\n"
+                f"📉 *Max Drawdown:* {m['max_drawdown_pct']:.2f}%\n"
+                f"🎯 *Win Rate:* {m['win_rate_pct']:.1f}%\n"
+                f"🔄 *Total Trades:* {m['n_trades']}\n"
+                f"📊 *Avg Trade:* {m['avg_trade_pct']:+.2f}%\n"
+                f"💎 *Profit Factor:* {m['profit_factor']:.2f}\n"
+                f"💵 *Final Equity:* ₹{m['final_equity']:,.0f}\n\n"
+                f"_Based on {len(enriched)} candles of 15-min data_"
+            )
+            send_telegram_message(msg)
+
+        except Exception as exc:
+            logger.error("Backtest failed for %s: %s", ticker, exc)
+            send_telegram_message(f"❌ Backtest failed for *{ticker}*: {exc}")
+
     def _handle_help(self):
         """Handle /help command."""
         msg = ("🤖 *Mr. Stonk Bot — Commands*\n\n"
                "📈 `/chart RELIANCE.NS` — View candlestick chart\n"
                "📊 `/status` — Check market regime\n"
+               "📋 `/report` — Daily summary report\n"
+               "📉 `/backtest RELIANCE.NS` — Run historical backtest\n"
                "❓ `/help` — Show this message\n\n"
                "💡 *Tip:* You can use short names like:\n"
                "`/chart RELIANCE` (I'll add .NS automatically)")
